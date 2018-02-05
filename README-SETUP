@@ -1,0 +1,97 @@
+====================================================================================
+# Environment
+------------------------------------------------------------------------------------
+$ sudo apt-get install -y autoconf automake autotools-dev curl device-tree-compiler
+$ sudo apt-get install -y libmpc-dev libmpfr-dev libgmp-dev gawk build-essential
+$ sudo apt-get install -y bison flex texinfo gperf libtool patchutils bc zlib1g-dev
+$ sudo apt-get install -y libpixman-1-dev libelf-dev
+====================================================================================
+
+
+====================================================================================
+#riscv-pk
+#==> riscv proxy kernel build method
+------------------------------------------------------------------------------------
+cd riscv-pk
+mkdir -p build
+cd build
+
+export RISCV=${HOME}/riscv-toolchain/
+export PATH=$PATH:$RISCV/bin
+../configure --prefix=$RISCV --host=riscv64-unknown-elf
+make
+make install
+====================================================================================
+
+
+====================================================================================
+#riscv-boom-ref
+#==> Xilinx FPGA board + nexell customize boom images
+------------------------------------------------------------------------------------
+cd riscv-boom-ref
+
+tar xvzf buildroot.tar.gz
+tar xvzf linux-4.6.2.tar.gz
+tar xvzf riscv-gnu-toolchain.tar.gz
+
+make -j12
+====================================================================================
+
+
+====================================================================================
+#riscv-linux
+#==> riscv-next branch linux kernel source
+------------------------------------------------------------------------------------
+make defconfig
+make
+====================================================================================
+
+
+====================================================================================
+#riscv-qemu
+#==> qemu setup
+------------------------------------------------------------------------------------
+cd riscv-qemu
+mkdir -p build
+cd build
+../configure
+make
+#==> run riscv-qemu/build/riscv64-softmmu/qemu-system-riscv64
+====================================================================================
+
+
+====================================================================================
+#riscv-tools
+------------------------------------------------------------------------------------
+cd riscv-tools
+git submodule update --init --recursive
+
+# toolchain install directory select
+export RISCV=/opt/riscv/riscv-toolchain/
+export PATH=$PATH:$RISCV/bin
+
+./build.sh
+====================================================================================
+
+
+====================================================================================
+#tools
+#==> Scripts directory
+------------------------------------------------------------------------------------
+./riscv-tools-setup.sh
+./riscv-qemu-setup.sh
+./yocto-build.sh
+====================================================================================
+
+
+====================================================================================
+#yocto
+#==> yocto build & spike simulator running method
+------------------------------------------------------------------------------------
+cd repoRISCV/yocto/riscv-poky
+
+source oe-init-build-env
+bitbake core-image-riscv
+
+runspike riscv64
+====================================================================================

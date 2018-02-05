@@ -1,0 +1,17 @@
+Manifest-Version: 1.0
+Bundle-SymbolicName: org.eclipse.epp.package.common;singleton:=true
+Archiver-Version: Plexus Archiver
+Built-By: ilg
+Require-Bundle: org.eclipse.platform,org.eclipse.equinox.app
+Bundle-ManifestVersion: 2
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Eclipse-SourceReferences: scm:git:git://git.eclipse.org/gitroot/epp/or
+ g.eclipse.epp.packages.git;path="packages/org.eclipse.epp.package.com
+ mon";commitId=204a8b0b075e938357692c8dc4db3b0941139d1a
+Bundle-Vendor: Eclipse Packaging Project
+Bundle-Name: Common EPP Bundle
+Bundle-Version: 4.7.2.20171218-0600
+Created-By: Apache Maven 3.5.0
+Build-Jdk: 1.8.0_131
+Eclipse-BundleShape: dir
+
