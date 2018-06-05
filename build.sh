@@ -21,7 +21,7 @@ BUILD_KERNEL=false
 BL1_PATH=`readlink -ev ${ROOT_PATH}/riscv-bl1/`
 
 PK_PATH=`readlink -ev ${ROOT_PATH}/riscv-pk/`
-PK_PAYLOAD_ENABLE=false
+PK_PAYLOAD_ENABLE=true
 
 KERNEL_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/`
 KERNEL_DEFCONFIG=defconfig
@@ -162,12 +162,16 @@ function pk_build()
     if [ $CLEAN_BUILD == true ];then
         rm -rf build
         mkdir -p build
+    else
+        if [ ! -d ${PK_PATH}/build ];then
+	    mkdir -p build
+	fi
     fi
 
     pushd build
 
     if [ $PK_PAYLOAD_ENABLE == true ]; then
-        ../configure --prefix=$RISCV --host=riscv64-unknown-elf --with-payload=${KERNEL_PATH}/vmlinux
+        ../configure --prefix=$RISCV --host=riscv64-unknown-elf --enable-logo --with-payload=${KERNEL_PATH}/vmlinux
     else
         ../configure --prefix=$RISCV --host=riscv64-unknown-elf
     fi
@@ -188,7 +192,7 @@ function kernel_build()
     echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
     echo -e "\033[45;30m                         Kernel Build                               \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
-    
+
     pushd ${KERNEL_PATH}
 
     if [ $CLEAN_BUILD == true ];then
@@ -198,6 +202,8 @@ function kernel_build()
     make ARCH=${KERNEL_ARCH} ${KERNEL_DEFCONFIG}
 
     make ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
+
+    popd
 }
 
 function move_images()
