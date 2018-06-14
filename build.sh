@@ -17,6 +17,8 @@ BUILD_ALL=true
 BUILD_BL1=false
 BUILD_PK=false
 BUILD_KERNEL=false
+BUILD_DTB=false
+BUILD_QEMU=false
 
 BL1_PATH=`readlink -ev ${ROOT_PATH}/riscv-bl1/`
 
@@ -26,6 +28,9 @@ PK_PAYLOAD_ENABLE=true
 KERNEL_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/`
 KERNEL_DEFCONFIG=defconfig
 KERNEL_ARCH=riscv
+
+DTB_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/arch/riscv/boot/dts/`
+DTB_FILENAME=swallow
 
 set -e
 
@@ -42,6 +47,8 @@ function parse_args()
 		     bl1    ) BUILD_ALL=false; BUILD_BL1=true ;;
 		     pk     ) BUILD_ALL=false; BUILD_PK=true ;;
 		     kernel ) BUILD_ALL=false; BUILD_KERNEL=true ;;
+		     dtb    ) BUILD_ALL=false; BUILD_DTB=true ;;
+		     qemu   ) BUILD_ALL=false; BUILD_QEMU=true ;;
 		     *      ) usage; exit 1 ;;
 		 esac
 		 shift 2 ;;
@@ -53,17 +60,22 @@ function parse_args()
 
 function usage()
 {
-    echo -e "\nUsage: $0 [-c -f -t bl1 -t pk -t kernel] \n"
-    echo -e " : default, total build, none argument"    
+    echo -e "\nUsage: $0 [-c -f -t bl1 -t pk -t kernel -t dtb -t qemu] \n"
+    echo -e " : default, total build, none argument"
     echo -e " -f : first build"
     echo -e " -c : cleanbuild"
     echo -e " -t bl1    : if you want to build only bl1, specify this, default no"
     echo -e " -t pk     : if you want to build only pk, specify this, default no"
     echo -e " -t kernel : if you want to build only kernel, specify this, default no"
+    echo -e " -t dtb    : if you want to build only dtb, specify this, default no"
+    echo -e " -t qemu   : if you want to build only qeme, specify this, default no"
     echo " ex) $0 "
     echo " ex) $0 -f"
     echo " ex) $0 -t pk"
     echo " ex) $0 -t bl1 -t pk"
+    echo " ex) $0 -t bl1 -t pk -t kernel"
+    echo " ex) $0 -t bl1 -t pk -t kernel -t dtb"
+    echo " ex) $0 -t qemu"
     echo ""
 }
 
@@ -88,10 +100,10 @@ function do_build()
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
     if [ ! -d ${ROOT_PATH}/build ];then
-        mkdir -p ${ROOT_PATH}/build        
+        mkdir -p ${ROOT_PATH}/build
     fi
     BUILD_PATH=`readlink -ev ${ROOT_PATH}/build`
-        
+
     if [ ${FIRST_BUILD} == true ];then
         echo -e "\033[45;30m First Build !\033[0m"
         toolchain_build
@@ -99,13 +111,16 @@ function do_build()
         bl1_build
         kernel_build
         pk_build
+	dtb_build
     else
         environment_check
         if [ $BUILD_ALL == true ];then
             echo -e "\033[45;30m All Build !\033[0m"
+	    qemu_build
             bl1_build
             kernel_build
             pk_build
+	    dtb_build
         else
             echo -e "\033[45;30m Partital Build !\033[0m"
             if [ $BUILD_BL1 == true ];then
@@ -116,7 +131,13 @@ function do_build()
             fi
             if [ $BUILD_KERNEL == true ];then
                 kernel_build
-            fi        
+            fi
+	    if [ $BUILD_DTB == true ];then
+                dtb_build
+            fi
+            if [ $BUILD_QEMU == true ];then
+                qemu_build
+            fi
         fi
     fi
 }
@@ -206,6 +227,18 @@ function kernel_build()
     popd
 }
 
+function dtb_build()
+{
+    echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
+    echo -e "\033[45;30m                         dtb Build                               \033[0m"
+    echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
+
+    pushd ${DTB_PATH}
+
+    dtc -I dts -O dtb -o ${DTB_FILENAME}.dtb ${DTB_FILENAME}.dts
+
+    popd
+}
 function move_images()
 {
     echo -e "\n\033[46;30m ------------------------------------------------------------------ \033[0m"
@@ -226,7 +259,7 @@ function move_images()
     cp ${PK_PATH}/build/bbl ${BUILD_PATH}
 
     echo -e "\033[45;30m     Copy swallow.dtb ---->        \033[0m"
-    cp ${TOOLS_PATH}/bootgen/swallow.dtb ${BUILD_PATH}
+    cp ${DTB_PATH}/${DTB_FILENAME}.dtb ${BUILD_PATH}
 }
 
 function convert_images()
@@ -236,7 +269,7 @@ function convert_images()
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
     pushd ${TOOLS_PATH}/bootgen
-    
+
     ./makebingen.sh dos ${BUILD_PATH}
 
     popd
