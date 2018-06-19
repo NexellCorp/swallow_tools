@@ -12,6 +12,7 @@ TOOLCHAIN_PATH="${HOME}/riscv-toolchain"
 
 FIRST_BUILD=false
 CLEAN_BUILD=false
+SDK_BUILD=false
 
 BUILD_ALL=true
 BUILD_BL1=false
@@ -19,6 +20,7 @@ BUILD_PK=false
 BUILD_KERNEL=false
 BUILD_DTB=false
 BUILD_QEMU=false
+BUILD_YOCTO=false
 
 BL1_PATH=`readlink -ev ${ROOT_PATH}/riscv-bl1/`
 
@@ -32,24 +34,29 @@ KERNEL_ARCH=riscv
 DTB_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/arch/riscv/boot/dts/`
 DTB_FILENAME=swallow
 
+YOCTO_PATH=`readlink -ev ${ROOT_PATH}/yocto/`
+YOCTO_POKY_PATH=`readlink -ev ${ROOT_PATH}/yocto/riscv-poky/`
+
 set -e
 
 function parse_args()
 {
-    ARGS=$(getopt -o cft:h -- "$@");
+    ARGS=$(getopt -o cfst:h -- "$@");
     eval set -- "$ARGS";
 
     while true; do
         case "$1" in
             -c ) CLEAN_BUILD=true; shift 1 ;;
 	    -f ) FIRST_BUILD=true; shift 1 ;;
+            -s ) SDK_BUILD=true; shift 1 ;;
 	    -t ) case "$2" in
-		     bl1    ) BUILD_ALL=false; BUILD_BL1=true ;;
-		     pk     ) BUILD_ALL=false; BUILD_PK=true ;;
-		     kernel ) BUILD_ALL=false; BUILD_KERNEL=true ;;
-		     dtb    ) BUILD_ALL=false; BUILD_DTB=true ;;
-		     qemu   ) BUILD_ALL=false; BUILD_QEMU=true ;;
-		     *      ) usage; exit 1 ;;
+                     bl1    ) BUILD_ALL=false; BUILD_BL1=true ;;
+                     pk     ) BUILD_ALL=false; BUILD_PK=true ;;
+                     kernel ) BUILD_ALL=false; BUILD_KERNEL=true ;;
+                     dtb    ) BUILD_ALL=false; BUILD_DTB=true ;;
+                     qemu   ) BUILD_ALL=false; BUILD_QEMU=true ;;
+                     yocto  ) BUILD_ALL=false; BUILD_YOCTO=true ;;
+                     *      ) usage; exit 1 ;;
 		 esac
 		 shift 2 ;;
 	    -h ) usage; exit 1 ;;
@@ -60,7 +67,7 @@ function parse_args()
 
 function usage()
 {
-    echo -e "\nUsage: $0 [-c -f -t bl1 -t pk -t kernel -t dtb -t qemu] \n"
+    echo -e "\nUsage: $0 [-c -f -t bl1 -t pk -t kernel -t dtb -t qemu -t yocto] \n"
     echo -e " : default, total build, none argument"
     echo -e " -f : first build"
     echo -e " -c : cleanbuild"
@@ -68,7 +75,8 @@ function usage()
     echo -e " -t pk     : if you want to build only pk, specify this, default no"
     echo -e " -t kernel : if you want to build only kernel, specify this, default no"
     echo -e " -t dtb    : if you want to build only dtb, specify this, default no"
-    echo -e " -t qemu   : if you want to build only qeme, specify this, default no"
+    echo -e " -t qemu   : if you want to build only qemu, specify this, default no"
+    echo -e " -t yocto   : if you want to build only yocto, specify this, default no"
     echo " ex) $0 "
     echo " ex) $0 -f"
     echo " ex) $0 -t pk"
@@ -76,6 +84,7 @@ function usage()
     echo " ex) $0 -t bl1 -t pk -t kernel"
     echo " ex) $0 -t bl1 -t pk -t kernel -t dtb"
     echo " ex) $0 -t qemu"
+    echo " ex) $0 -t yocto"
     echo ""
 }
 
@@ -104,6 +113,7 @@ function do_build()
     fi
     BUILD_PATH=`readlink -ev ${ROOT_PATH}/build`
 
+    environment_check
     if [ ${FIRST_BUILD} == true ];then
         echo -e "\033[45;30m First Build !\033[0m"
         toolchain_build
@@ -113,7 +123,6 @@ function do_build()
         pk_build
 	dtb_build
     else
-        environment_check
         if [ $BUILD_ALL == true ];then
             echo -e "\033[45;30m All Build !\033[0m"
 	    qemu_build
@@ -137,6 +146,9 @@ function do_build()
             fi
             if [ $BUILD_QEMU == true ];then
                 qemu_build
+            fi
+            if [ $BUILD_YOCTO == true ];then
+                yocto_build
             fi
         fi
     fi
@@ -239,27 +251,57 @@ function dtb_build()
 
     popd
 }
+
+function yocto_build()
+{
+    echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
+    echo -e "\033[45;30m                         yocto Build                               \033[0m"
+    echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
+
+    pushd ${YOCTO_POKY_PATH}
+
+    if [ $SDK_BUILD == true ];then
+        source oe-init-build-env ${YOCTO_PATH}/build_sdk
+        bitbake -c populate_sdk core-image-riscv
+    else
+        source oe-init-build-env ${YOCTO_PATH}/build
+        bitbake core-image-riscv
+    fi
+
+    popd
+}
+
 function move_images()
 {
     echo -e "\n\033[46;30m ------------------------------------------------------------------ \033[0m"
     echo -e "\033[46;30m                         Move Images                                \033[0m"
     echo -e "\033[46;30m ------------------------------------------------------------------ \033[0m"
 
-    echo -e "\033[45;30m     Copy bl1.bin ---->        \033[0m"
-    cp ${BL1_PATH}/bl1/build/bl1.bin ${BUILD_PATH}
-
-    echo -e "\033[45;30m     Copy vector.bin ---->        \033[0m"
-    cp ${BL1_PATH}/vector/build/vector.bin ${BUILD_PATH}
-
-    echo -e "\033[45;30m     Copy vmlinux ---->        \033[0m"
-    cp ${KERNEL_PATH}/vmlinux ${BUILD_PATH}
-
-    echo -e "\033[45;30m     Copy bbl & bbl.bin ---->        \033[0m"
-    cp ${PK_PATH}/build/bbl.bin ${BUILD_PATH}
-    cp ${PK_PATH}/build/bbl ${BUILD_PATH}
-
-    echo -e "\033[45;30m     Copy swallow.dtb ---->        \033[0m"
-    cp ${DTB_PATH}/${DTB_FILENAME}.dtb ${BUILD_PATH}
+    if [ $BUILD_ALL == true -o $BUILD_BL1 == true ];then
+        echo -e "\033[45;30m     Copy bl1.bin ---->        \033[0m"
+        cp ${BL1_PATH}/bl1/build/bl1.bin ${BUILD_PATH}
+ 
+        echo -e "\033[45;30m     Copy vector.bin ---->        \033[0m"
+        cp ${BL1_PATH}/vector/build/vector.bin ${BUILD_PATH}
+    fi
+    if [ $BUILD_ALL == true -o $BUILD_KERNEL == true ];then
+        echo -e "\033[45;30m     Copy vmlinux ---->        \033[0m"
+        cp ${KERNEL_PATH}/vmlinux ${BUILD_PATH}
+    fi
+    if [ $BUILD_ALL == true -o $BUILD_PK == true ];then
+        echo -e "\033[45;30m     Copy bbl & bbl.bin ---->        \033[0m"
+        cp ${PK_PATH}/build/bbl.bin ${BUILD_PATH}
+        cp ${PK_PATH}/build/bbl ${BUILD_PATH}
+    fi
+    if [ $BUILD_ALL == true -o $BUILD_DTB == true ];then
+        echo -e "\033[45;30m     Copy swallow.dtb ---->        \033[0m"
+        cp ${DTB_PATH}/${DTB_FILENAME}.dtb ${BUILD_PATH}
+    fi
+    if [ $BUILD_YOCTO == true ];then
+        echo -e "\033[45;30m     Copy yocto rootfs ---->        \033[0m"
+        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.cpio.gz ${BUILD_PATH}
+        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.ext2 ${BUILD_PATH}
+    fi
 }
 
 function convert_images()
@@ -277,7 +319,6 @@ function convert_images()
 
 parse_args $@
 
-#BUILD_PATH=`readlink -ev ${ROOT_PATH}/build`
 do_build
 move_images
 convert_images
