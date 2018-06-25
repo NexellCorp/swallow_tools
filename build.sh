@@ -28,11 +28,14 @@ PK_PATH=`readlink -ev ${ROOT_PATH}/riscv-pk/`
 PK_PAYLOAD_ENABLE=true
 
 KERNEL_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/`
-KERNEL_DEFCONFIG=defconfig
+KERNEL_DEFCONFIG=swallow_defconfig
 KERNEL_ARCH=riscv
 
 DTB_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/arch/riscv/boot/dts/`
 DTB_FILENAME=swallow
+
+BUILDROOT_CONF_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/conf/`
+BUILDROOT_SYSROOT_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/work/sysroot/`
 
 YOCTO_PATH=`readlink -ev ${ROOT_PATH}/yocto/`
 YOCTO_POKY_PATH=`readlink -ev ${ROOT_PATH}/yocto/riscv-poky/`
@@ -204,7 +207,7 @@ function pk_build()
     pushd build
 
     if [ $PK_PAYLOAD_ENABLE == true ]; then
-        ../configure --prefix=$RISCV --host=riscv64-unknown-elf --enable-logo --with-payload=${KERNEL_PATH}/vmlinux
+        ../configure --prefix=$RISCV --host=riscv64-unknown-elf --enable-logo --with-logo=${TOOLS_PATH}/conf/nexell_logo.txt --with-payload=${KERNEL_PATH}/vmlinux
     else
         ../configure --prefix=$RISCV --host=riscv64-unknown-elf
     fi
@@ -234,7 +237,10 @@ function kernel_build()
 
     make ARCH=${KERNEL_ARCH} ${KERNEL_DEFCONFIG}
 
-    make ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
+    make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${BUILDROOT_SYSROOT_PATH}" \
+	    CONFIG_INITRAMFS_ROOT_UID=1000 \
+	    CONFIG_INITRAMFS_ROOT_GID=1000 \
+	    ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
 
     popd
 }
