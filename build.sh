@@ -40,6 +40,9 @@ BUILDROOT_SYSROOT_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/work/sysroot/`
 YOCTO_PATH=`readlink -ev ${ROOT_PATH}/yocto/`
 YOCTO_POKY_PATH=`readlink -ev ${ROOT_PATH}/yocto/riscv-poky/`
 
+ROOTFS_PATH=
+DEFAULT_ROOTFS_PATH=`readlink -ev ${ROOT_PATH}/tools/rootfs/`
+
 set -e
 
 function parse_args()
@@ -229,6 +232,8 @@ function kernel_build()
     echo -e "\033[45;30m                         Kernel Build                               \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
+    check_rootfs
+
     pushd ${KERNEL_PATH}
 
     if [ $CLEAN_BUILD == true ];then
@@ -245,10 +250,42 @@ function kernel_build()
     popd
 }
 
+function check_rootfs()
+{
+    echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
+    echo -e "\033[45;30m                        check rootfs                                \033[0m"
+    echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
+
+    if [ -e ${BUILD_PATH}/rootfs.cpio.gz ];then
+	ROOTFS_PATH=`readlink -ev ${BUILD_PATH}/rootfs.cpio.gz`
+	echo " Exist rootfs file by yocto build"
+    else
+	echo " Does not exist yocto build rootfs file "
+	echo " Using default rootfs file"
+
+	pushd ${DEFAULT_ROOTFS_PATH}
+
+        if [ -e rootfs.tar.gz ];then
+	    echo "rootfs exist"
+	    if [ -e *.cpio.gz ];then
+		echo ".cpio.gz exist"
+	    else
+		echo "doest not compatible file"
+		tar xzf rootfs.tar.gz
+	    fi
+	    ROOTFS_PATH=`readlink -ev ${DEFAULT_ROOTFS_PATH}/rootfs.cpio.gz`
+	else
+	    echo -e "\033[42;30m       ERROR ::   rootfs.tar.gz does not exist               \033[0m"
+	fi
+
+	popd
+    fi
+}
+
 function dtb_build()
 {
     echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
-    echo -e "\033[45;30m                         dtb Build                               \033[0m"
+    echo -e "\033[45;30m                         dtb Build                                  \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
     pushd ${DTB_PATH}
@@ -261,7 +298,7 @@ function dtb_build()
 function yocto_build()
 {
     echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
-    echo -e "\033[45;30m                         yocto Build                               \033[0m"
+    echo -e "\033[45;30m                         yocto Build                                \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
     pushd ${YOCTO_POKY_PATH}
@@ -305,8 +342,8 @@ function move_images()
     fi
     if [ $BUILD_YOCTO == true ];then
         echo -e "\033[45;30m     Copy yocto rootfs ---->        \033[0m"
-        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.cpio.gz ${BUILD_PATH}
-        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.ext2 ${BUILD_PATH}
+        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.cpio.gz ${BUILD_PATH}/rootfs.cpio.gz
+        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.ext2 ${BUILD_PATH}/rootfs.ext2
     fi
 }
 
