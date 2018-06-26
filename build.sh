@@ -21,6 +21,7 @@ BUILD_KERNEL=false
 BUILD_DTB=false
 BUILD_QEMU=false
 BUILD_YOCTO=false
+BUILD_ROOTFS=false
 
 BL1_PATH=`readlink -ev ${ROOT_PATH}/riscv-bl1/`
 
@@ -43,6 +44,8 @@ YOCTO_POKY_PATH=`readlink -ev ${ROOT_PATH}/yocto/riscv-poky/`
 ROOTFS_PATH=
 DEFAULT_ROOTFS_PATH=`readlink -ev ${ROOT_PATH}/tools/rootfs/`
 
+RAMDISK_FILE=ramdisk.cpio.gz
+
 set -e
 
 function parse_args()
@@ -62,6 +65,7 @@ function parse_args()
                      dtb    ) BUILD_ALL=false; BUILD_DTB=true ;;
                      qemu   ) BUILD_ALL=false; BUILD_QEMU=true ;;
                      yocto  ) BUILD_ALL=false; BUILD_YOCTO=true ;;
+                     rootfs ) BUILD_ALL=false; BUILD_ROOTFS=true ;;
                      *      ) usage; exit 1 ;;
 		 esac
 		 shift 2 ;;
@@ -156,6 +160,10 @@ function do_build()
             if [ $BUILD_YOCTO == true ];then
                 yocto_build
             fi
+            if [ $BUILD_ROOTFS == true ];then
+                kernel_build
+                pk_build
+            fi
         fi
     fi
 }
@@ -232,7 +240,7 @@ function kernel_build()
     echo -e "\033[45;30m                         Kernel Build                               \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
-    check_rootfs
+    check_ramdisk
 
     pushd ${KERNEL_PATH}
 
@@ -241,24 +249,39 @@ function kernel_build()
     fi
 
     make ARCH=${KERNEL_ARCH} ${KERNEL_DEFCONFIG}
-
-    make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${BUILDROOT_SYSROOT_PATH}" \
-	    CONFIG_INITRAMFS_ROOT_UID=1000 \
-	    CONFIG_INITRAMFS_ROOT_GID=1000 \
-	    ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
+    
+    #    make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${BUILDROOT_SYSROOT_PATH}"
+    
+    make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${ROOTFS_PATH}" \
+         CONFIG_INITRAMFS_ROOT_UID=1000 \
+         CONFIG_INITRAMFS_ROOT_GID=1000 \
+         ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
 
     popd
 }
 
-function check_rootfs()
+function check_ramdisk()
 {
     echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
     echo -e "\033[45;30m                        check rootfs                                \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
-    if [ -e ${BUILD_PATH}/rootfs.cpio.gz ];then
-	ROOTFS_PATH=`readlink -ev ${BUILD_PATH}/rootfs.cpio.gz`
+    if [ -e ${BUILD_PATH}/${RAMDISK_FILE} ];then
 	echo " Exist rootfs file by yocto build"
+
+	if [ -d ${BUILD_PATH}/sysroot ];then
+	    echo "Exist sysroot directory"
+	else
+	    mkdir -p ${BUILD_PATH}/sysroot
+	fi
+	ROOTFS_PATH=`readlink -ev ${BUILD_PATH}/sysroot/`
+	cp ${BUILD_PATH}/${RAMDISK_FILE} ${ROOTFS_PATH}
+	
+	pushd ${ROOTFS_PATH}
+	zcat ${RAMDISK_FILE} | cpio -idmv
+	rm ${RAMDISK_FILE}
+	popd
+
     else
 	echo " Does not exist yocto build rootfs file "
 	echo " Using default rootfs file"
@@ -267,13 +290,25 @@ function check_rootfs()
 
         if [ -e rootfs.tar.gz ];then
 	    echo "rootfs exist"
-	    if [ -e *.cpio.gz ];then
-		echo ".cpio.gz exist"
+	    if [ -e ${RAMDISK_FILE} ];then
+		echo "${RAMDISK_FILE} exist"
 	    else
 		echo "doest not compatible file"
 		tar xzf rootfs.tar.gz
 	    fi
-	    ROOTFS_PATH=`readlink -ev ${DEFAULT_ROOTFS_PATH}/rootfs.cpio.gz`
+
+            if [ -d ${DEFAULT_ROOTFS_PATH}/sysroot ];then
+	        echo "Exist sysroot directory"
+	    else
+	        mkdir -p ${DEFAULT_ROOTFS_PATH}/sysroot
+	    fi
+
+	    ROOTFS_PATH=`readlink -ev ${DEFAULT_ROOTFS_PATH}/sysroot/`
+            cp ${DEFAULT_ROOTFS_PATH}/${RAMDISK_FILE} ${ROOTFS_PATH}
+            cd ${ROOTFS_PATH}
+            zcat ${RAMDISK_FILE} | cpio -idmv
+            rm ${RAMDISK_FILE}
+            cd ..
 	else
 	    echo -e "\033[42;30m       ERROR ::   rootfs.tar.gz does not exist               \033[0m"
 	fi
@@ -327,11 +362,11 @@ function move_images()
         echo -e "\033[45;30m     Copy vector.bin ---->        \033[0m"
         cp ${BL1_PATH}/vector/build/vector.bin ${BUILD_PATH}
     fi
-    if [ $BUILD_ALL == true -o $BUILD_KERNEL == true ];then
+    if [ $BUILD_ALL == true -o $BUILD_KERNEL == true -o $BUILD_ROOTFS = true ];then
         echo -e "\033[45;30m     Copy vmlinux ---->        \033[0m"
         cp ${KERNEL_PATH}/vmlinux ${BUILD_PATH}
     fi
-    if [ $BUILD_ALL == true -o $BUILD_PK == true ];then
+    if [ $BUILD_ALL == true -o $BUILD_PK == true -o $BUILD_ROOTFS = true ];then
         echo -e "\033[45;30m     Copy bbl & bbl.bin ---->        \033[0m"
         cp ${PK_PATH}/build/bbl.bin ${BUILD_PATH}
         cp ${PK_PATH}/build/bbl ${BUILD_PATH}
@@ -342,6 +377,7 @@ function move_images()
     fi
     if [ $BUILD_YOCTO == true ];then
         echo -e "\033[45;30m     Copy yocto rootfs ---->        \033[0m"
+        cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-initramfs-riscv64.cpio.gz ${BUILD_PATH}/${RAMDISK_FILE}
         cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.cpio.gz ${BUILD_PATH}/rootfs.cpio.gz
         cp ${YOCTO_PATH}/build/tmp/deploy/images/riscv64/core-image-riscv-riscv64.ext2 ${BUILD_PATH}/rootfs.ext2
     fi

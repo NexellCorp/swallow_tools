@@ -1,0 +1,6 @@
+bootgen/nsih-bl1.txt
+bootgen/nsih-bbl.txt
+rootfs/sysroot
+rootfs/ramdisk.cpio.gz
+rootfs/rootfs.cpio.gz
+rootfs/rootfs.ext2
