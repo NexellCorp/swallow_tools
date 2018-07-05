@@ -36,7 +36,6 @@ DTB_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/arch/riscv/boot/dts/`
 DTB_FILENAME=swallow
 
 BUILDROOT_CONF_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/conf/`
-BUILDROOT_SYSROOT_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/work/sysroot/`
 
 YOCTO_PATH=`readlink -ev ${ROOT_PATH}/yocto/`
 YOCTO_POKY_PATH=`readlink -ev ${ROOT_PATH}/yocto/riscv-poky/`
@@ -123,7 +122,6 @@ function do_build()
     fi
     BUILD_PATH=`readlink -ev ${ROOT_PATH}/build`
 
-    environment_check
     if [ ${FIRST_BUILD} == true ];then
         echo -e "\033[45;30m First Build !\033[0m"
         toolchain_build
@@ -133,6 +131,7 @@ function do_build()
         pk_build
 	dtb_build
     else
+    	environment_check
         if [ $BUILD_ALL == true ];then
             echo -e "\033[45;30m All Build !\033[0m"
 	    qemu_build
@@ -249,9 +248,7 @@ function kernel_build()
     fi
 
     make ARCH=${KERNEL_ARCH} ${KERNEL_DEFCONFIG}
-    
-    #    make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${BUILDROOT_SYSROOT_PATH}"
-    
+
     make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${ROOTFS_PATH}" \
          CONFIG_INITRAMFS_ROOT_UID=1000 \
          CONFIG_INITRAMFS_ROOT_GID=1000 \
