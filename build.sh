@@ -255,7 +255,7 @@ function kernel_build()
     make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${ROOTFS_PATH}" \
          CONFIG_INITRAMFS_ROOT_UID=1000 \
          CONFIG_INITRAMFS_ROOT_GID=1000 \
-         ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux
+         ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- vmlinux -j8
 
     popd
 }
@@ -320,12 +320,12 @@ function check_ramdisk()
 function dtb_build()
 {
     echo -e "\n\033[45;30m ------------------------------------------------------------------ \033[0m"
-    echo -e "\033[45;30m                         dtb Build                                  \033[0m"
+    echo -e "\033[45;30m                         dtb Build                               \033[0m"
     echo -e "\033[45;30m ------------------------------------------------------------------ \033[0m"
 
-    pushd ${DTB_PATH}
+    pushd ${KERNEL_PATH}
 
-    dtc -I dts -O dtb -o ${DTB_FILENAME}.dtb ${DTB_FILENAME}.dts
+    make ARCH=${KERNEL_ARCH} CROSS_COMPILE=${RISCV}/bin/riscv64-unknown-elf- dtbs -j8
 
     popd
 }
@@ -362,11 +362,11 @@ function move_images()
         echo -e "\033[45;30m     Copy vector.bin ---->        \033[0m"
         cp ${BL1_PATH}/vector/build/vector.bin ${BUILD_PATH}
     fi
-    if [ $BUILD_ALL == true -o $BUILD_KERNEL == true -o $BUILD_ROOTFS = true ];then
+    if [ $BUILD_ALL == true -o $BUILD_KERNEL == true -o $BUILD_ROOTFS == true ];then
         echo -e "\033[45;30m     Copy vmlinux ---->        \033[0m"
         cp ${KERNEL_PATH}/vmlinux ${BUILD_PATH}
     fi
-    if [ $BUILD_ALL == true -o $BUILD_PK == true -o $BUILD_ROOTFS = true ];then
+    if [ $BUILD_ALL == true -o $BUILD_PK == true -o $BUILD_ROOTFS == true ];then
         echo -e "\033[45;30m     Copy bbl & bbl.bin ---->        \033[0m"
         cp ${PK_PATH}/build/bbl.bin ${BUILD_PATH}
         cp ${PK_PATH}/build/bbl ${BUILD_PATH}
