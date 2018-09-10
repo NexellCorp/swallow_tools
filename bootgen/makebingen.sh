@@ -15,8 +15,9 @@
 #-----------------------------
 
 argc=$#
-BINTYPE=$1
-BINPATH=`readlink -ev $2`
+BOARD_NAME=$1
+BINTYPE=$2
+BINPATH=`readlink -ev $3`
 
 SDBOOT_BIN="${BINPATH}/sdboot.bin"
 
@@ -27,12 +28,12 @@ then
 fi
 
 #nsih.txt modified for bl1.bin size compatible
-python2.7 nsihtxtmod.py ${BINPATH}
+python2.7 nsihtxtmod.py ${BOARD_NAME} ${BINPATH}
 
 #create sdboot.bin, select type gpt or dos
 python2.7 bootbingen.py ${BINTYPE} ${BINPATH}
 
-#create sdboot.bin 
+#create sdboot.bin
 #dd if=/dev/zero of=sdboot.bin bs=512 count=1
 
 #Add nsih-bl1.bin to sdboot.bin
@@ -45,7 +46,7 @@ dd if=${BINPATH}/bl1.bin >> ${SDBOOT_BIN}
 dd if=${BINPATH}/vector.bin bs=4K >> ${SDBOOT_BIN}
 
 #Add DTB binary(swallow.dtb) to sdboot.bin
-dd if=${BINPATH}/swallow.dtb >> ${SDBOOT_BIN}
+dd if=${BINPATH}/swallow-${BOARD_NAME}.dtb >> ${SDBOOT_BIN}
 
 #Add nsih-bbl.bin to sdboot.bin
 dd if=${BINPATH}/nsih-bbl.bin bs=512 >> ${SDBOOT_BIN}

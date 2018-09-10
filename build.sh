@@ -29,11 +29,9 @@ PK_PATH=`readlink -ev ${ROOT_PATH}/riscv-pk/`
 PK_PAYLOAD_ENABLE=true
 
 KERNEL_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/`
-KERNEL_DEFCONFIG=swallow_defconfig
 KERNEL_ARCH=riscv
 
 DTB_PATH=`readlink -ev ${ROOT_PATH}/riscv-linux/arch/riscv/boot/dts/`
-DTB_FILENAME=swallow
 
 BUILDROOT_CONF_PATH=`readlink -ev ${ROOT_PATH}/riscv-boom-ref/conf/`
 
@@ -49,11 +47,12 @@ set -e
 
 function parse_args()
 {
-    ARGS=$(getopt -o cfst:h -- "$@");
+    ARGS=$(getopt -o b:cfst:h -- "$@");
     eval set -- "$ARGS";
 
     while true; do
         case "$1" in
+	    -b ) BOARD_NAME=$2; shift 2 ;;
             -c ) CLEAN_BUILD=true; shift 1 ;;
 	    -f ) FIRST_BUILD=true; shift 1 ;;
             -s ) SDK_BUILD=true; shift 1 ;;
@@ -69,24 +68,30 @@ function parse_args()
 		 esac
 		 shift 2 ;;
 	    -h ) usage; exit 1 ;;
-            -- ) break ;;
+            -- ) echo -e "\n\033[45;30m ---------------------------------- \033[0m"
+		 echo -e "\033[45;30m Please insert Boardname(-b option) \033[0m"
+		 echo -e "\033[45;30m ---------------------------------- \033[0m";
+		 usage; exit 1 ;;
         esac
     done
 }
 
 function usage()
 {
-    echo -e "\nUsage: $0 [-c -f -t bl1 -t pk -t kernel -t dtb -t qemu -t yocto] \n"
-    echo -e " : default, total build, none argument"
-    echo -e " -f : first build"
+    echo -e "\nUsage: $0 [-b <boardname> -c -f -t bl1 -t pk -t kernel -t dtb -t qemu -t yocto] \n"
+    echo -e " : default, total build, need boardname argument"
+    echo -e " -b <boardname> : target board name (available boards: qemu drone)"
     echo -e " -c : cleanbuild"
+    echo -e " -f : first build"
     echo -e " -t bl1    : if you want to build only bl1, specify this, default no"
     echo -e " -t pk     : if you want to build only pk, specify this, default no"
     echo -e " -t kernel : if you want to build only kernel, specify this, default no"
     echo -e " -t dtb    : if you want to build only dtb, specify this, default no"
     echo -e " -t qemu   : if you want to build only qemu, specify this, default no"
-    echo -e " -t yocto   : if you want to build only yocto, specify this, default no"
+    echo -e " -t yocto  : if you want to build only yocto, specify this, default no"
+    echo -e " -t rootfs : if you want to build only rootfs, specify this, default no"
     echo " ex) $0 "
+    echo " ex) $0 -b qemu"
     echo " ex) $0 -f"
     echo " ex) $0 -t pk"
     echo " ex) $0 -t bl1 -t pk"
@@ -247,7 +252,7 @@ function kernel_build()
         make clean
     fi
 
-    make ARCH=${KERNEL_ARCH} ${KERNEL_DEFCONFIG}
+    make ARCH=${KERNEL_ARCH} swallow_${BOARD_NAME}_defconfig
 
     make CONFIG_INITRAMFS_SOURCE="${BUILDROOT_CONF_PATH}/initramfs.txt ${ROOTFS_PATH}" \
          CONFIG_INITRAMFS_ROOT_UID=1000 \
@@ -337,10 +342,10 @@ function yocto_build()
 
     if [ $SDK_BUILD == true ];then
         source oe-init-build-env ${YOCTO_PATH}/build_sdk
-        bitbake -c populate_sdk core-image-riscv
+        bitbake -c populate_sdk core-image-riscv tools-testapps
     else
         source oe-init-build-env ${YOCTO_PATH}/build
-        bitbake core-image-riscv
+        bitbake core-image-riscv tools-testapps
     fi
 
     popd
@@ -369,8 +374,8 @@ function move_images()
         cp ${PK_PATH}/build/bbl ${BUILD_PATH}
     fi
     if [ $BUILD_ALL == true -o $BUILD_DTB == true ];then
-        echo -e "\033[45;30m     Copy swallow.dtb ---->        \033[0m"
-        cp ${DTB_PATH}/${DTB_FILENAME}.dtb ${BUILD_PATH}
+        echo -e "\033[45;30m     Copy dtb ---->        \033[0m"
+        cp ${DTB_PATH}/swallow-${BOARD_NAME}.dtb ${BUILD_PATH}
     fi
     if [ $BUILD_YOCTO == true ];then
         echo -e "\033[45;30m     Copy yocto rootfs ---->        \033[0m"
@@ -388,7 +393,7 @@ function convert_images()
 
     pushd ${TOOLS_PATH}/bootgen
 
-    ./makebingen.sh dos ${BUILD_PATH}
+    ./makebingen.sh ${BOARD_NAME} dos ${BUILD_PATH}
 
     popd
 }

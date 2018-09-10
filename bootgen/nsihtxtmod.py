@@ -50,10 +50,10 @@ def modNSIHTXT(txtFileName, binFileName, key1, key2):
     move(tempFile2, txtFileName)
 
 
-def main(binPath):
+def main(boardName, binPath):
     binpadAppend(binPath+BL1_FILE_NAME)
     binpadAppend(binPath+BBL_FILE_NAME)
-    binpadAppend(binPath+DTB_FILE_NAME)
+    binpadAppend(binPath+"swallow-"+boardName+".dtb")
     modNSIHTXT(NSIH_BL1_TXT_FILE_NAME, binPath+BL1_FILE_NAME,
                "0x040", "Load Size")
     modNSIHTXT(NSIH_BBL_TXT_FILE_NAME, binPath+BBL_FILE_NAME,
