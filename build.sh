@@ -43,11 +43,13 @@ DEFAULT_ROOTFS_PATH=`readlink -ev ${ROOT_PATH}/tools/rootfs/`
 
 RAMDISK_FILE=ramdisk.cpio.gz
 
+BOARD_NAME=
+
 set -e
 
 function parse_args()
 {
-    ARGS=$(getopt -o b:cfst:h -- "$@");
+    ARGS=$(getopt -o "b:cfst:h" -- "$@");
     eval set -- "$ARGS";
 
     while true; do
@@ -68,10 +70,8 @@ function parse_args()
 		 esac
 		 shift 2 ;;
 	    -h ) usage; exit 1 ;;
-            -- ) echo -e "\n\033[45;30m ---------------------------------- \033[0m"
-		 echo -e "\033[45;30m Please insert Boardname(-b option) \033[0m"
-		 echo -e "\033[45;30m ---------------------------------- \033[0m";
-		 usage; exit 1 ;;
+	    -- ) break ;;
+            *  ) echo "invalid option $1"; usage; exit 1;;
         esac
     done
 }
@@ -398,8 +398,20 @@ function convert_images()
     popd
 }
 
-parse_args $@
+function check_board_name()
+{
+    local board_name=${1}
 
+    if [ -z ${board_name} ]; then
+	echo -e "\n\033[45;30m ---------------------------------- \033[0m"
+	echo -e "\033[45;30m Please insert Boardname(-b option) \033[0m"
+	echo -e "\033[45;30m ---------------------------------- \033[0m"
+	usage; exit 1
+    fi
+}
+
+parse_args $@
+check_board_name ${BOARD_NAME}
 do_build
 move_images
 convert_images
